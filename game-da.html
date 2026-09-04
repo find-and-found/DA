@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAO Advanced Audit Analytics Lab</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root { 
+            --bg-light: #f4f7f9; 
+            --card-bg: #ffffff; 
+            --border-color: #e2e8f0; 
+            --text-main: #334155;
+            --text-muted: #64748b;
+        }
+        body { background-color: var(--bg-light); font-family: 'Kanit', sans-serif; font-size: 0.95rem; color: var(--text-main); overflow-x: hidden; }
+        .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .card-header { border-bottom: 1px solid var(--border-color); font-weight: 600; color: #0f172a; padding: 12px 20px; background-color: #f8fafc; border-radius: 12px 12px 0 0; }
+        .kpi-value { font-size: 1.5rem; font-weight: 700; color: #0f172a; line-height: 1.2; }
+        
+        .mission-box { background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 12px; padding: 15px; margin-bottom: 15px; color: #0369a1; }
+        
+        .chart-wrapper { position: relative; height: 380px; width: 100%; cursor: pointer; } /* เพิ่ม cursor pointer ให้กราฟ */
+        .table-container { height: 450px; overflow-y: auto; background: white; scroll-behavior: smooth; } /* เพิ่ม scroll smooth */
+        
+        thead th { position: sticky; top: 0; background-color: #f1f5f9 !important; z-index: 1; border-bottom: 2px solid var(--border-color); color: #334155; font-weight: 600; font-size: 0.9rem; }
+        
+        .sortable { cursor: pointer; user-select: none; transition: color 0.2s; }
+        .sortable:hover { color: #0284c7; }
+        .icon-sort { font-size: 0.8em; color: #94a3b8; }
+        .icon-sort.active { color: #0284c7; }
+
+        .flagged-row { background-color: #fee2e2 !important; pointer-events: none; }
+        
+        /* CSS สำหรับกระพริบไฮไลต์เมื่อคลิกจากกราฟ */
+        .highlight-flash {
+            background-color: #bae6fd !important;
+            transition: background-color 0.5s ease;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .chat-bubble { max-width: 88%; padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; line-height: 1.5; word-wrap: break-word; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .chat-user { background-color: #0ea5e9; color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .chat-ai { background-color: #ffffff; color: #334155; border: 1px solid var(--border-color); align-self: flex-start; border-bottom-left-radius: 2px; }
+
+        @media (max-width: 768px) {
+            .chart-wrapper { height: 220px; }
+            .table-container { height: 60vh; }
+            
+            #dataTable thead { display: none; }
+            #dataTable tbody tr { 
+                display: block; border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px; padding: 12px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            }
+            #dataTable tbody td { display: flex; justify-content: space-between; align-items: center; border: none; padding: 6px 0; text-align: right; }
+            #dataTable tbody td::before { content: attr(data-label); font-weight: 600; color: #64748b; text-align: left; flex-shrink: 0; margin-right: 15px; }
+            .btn-group { width: 100%; margin-top: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid py-3 px-3 px-md-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
+        <div>
+            <h5 class="mb-1 fw-bold text-primary"><i class="fa-solid fa-shield-halved me-2"></i>SAO Analytics Lab</h5>
+        </div>
+        <div class="d-flex align-items-center gap-3 w-100 justify-content-between justify-content-md-end">
+            <div class="text-start text-md-end">
+                <div class="text-muted small" style="line-height: 1;">เวลาภารกิจ</div>
+                <div id="timer" class="fs-4 fw-bold text-danger" style="font-variant-numeric: tabular-nums;">05:00</div>
+            </div>
+            <div class="d-flex gap-2">
+                <button id="btnCopilot" class="btn btn-primary btn-sm fw-bold px-3 py-2 shadow-sm" data-bs-toggle="offcanvas" data-bs-target="#chatCopilot">
+                    <i class="fa-solid fa-message"></i><span class="d-none d-md-inline ms-1"> เปิดแชท AI</span>
+                </button>
+                <button id="btnAi" class="btn btn-secondary btn-sm fw-bold px-3 py-2 shadow-sm text-dark" onclick="activateGlobalAI()" disabled>
+                    <i class="fa-solid fa-lock"></i><span class="d-none d-md-inline ms-1"> ตัวช่วย (รอ 3 นาที)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rulebook Box -->
+    <div class="mission-box shadow-sm">
+        <h6 class="fw-bold mb-2 text-primary"><i class="fa-solid fa-book-open-reader me-2"></i> กฎและระเบียบการเบิกจ่าย (ต้องหาผู้ฝ่าฝืน 5 รายการ)</h6>
+        <div class="row small g-2 text-dark">
+            <div class="col-12 col-md-4"><strong>1.</strong> ยอด <span class="text-danger fw-bold">≥ 500,000</span> ต้องมีผู้อนุมัติเสมอ ห้ามซอยบิลเด็ดขาด</div>
+            <div class="col-12 col-md-4"><strong>2.</strong> ระบบอนุมัติให้ทำรายการใน <span class="text-danger fw-bold">เวลาทำการ</span> (08:00 - 18:00) เท่านั้น</div>
+            <div class="col-12 col-md-4"><strong>3.</strong> นิติบุคคลต้องมี <span class="text-danger fw-bold">Tax ID ไม่ซ้ำกัน</span> ป้องกันการสวมรอย</div>
+        </div>
+    </div>
+
+    <!-- Filter Tools -->
+    <div class="card p-3 mb-3">
+        <div class="row g-2">
+            <div class="col-8 col-md-9">
+                <input type="text" id="searchInput" class="form-control border-secondary-subtle" placeholder="พิมพ์ค้นหา... (บริษัท, Tax ID, ยอดเงิน)" onkeyup="filterTable()">
+            </div>
+            <div class="col-4 col-md-3">
+                <select id="amountFilter" class="form-select border-secondary-subtle" onchange="filterTable()">
+                    <option value="all">ทุกยอดเงิน</option>
+                    <option value="high">> 400,000</option>
+                    <option value="low">< 100,000</option>
+                </select>
+            </div>
+        </div>
+        <div class="d-flex justify-content-between mt-3 text-center small">
+            <div><span class="text-muted d-block">จำนวนรายการทั้งหมด</span><span class="fw-bold text-dark" id="kpi-total">20</span></div>
+            <div><span class="text-muted d-block">ค้นพบทุจริตแล้ว</span><span class="fw-bold text-success fs-5"><span id="score">0</span> / 5</span></div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- กราฟ Scatter Plot -->
+        <div class="col-xl-4 col-lg-12">
+            <div class="card h-100 mb-0">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-chart-scatter text-primary me-2"></i> การกระจายตัวของยอดเงิน</span>
+                    <small class="text-muted"><i class="fa-solid fa-hand-pointer"></i> คลิกจุดเพื่อดูข้อมูล</small>
+                </div>
+                <div class="card-body p-2">
+                    <div class="chart-wrapper">
+                        <canvas id="scatterChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ตารางข้อมูล -->
+        <div class="col-xl-8 col-lg-12">
+            <div class="card h-100 mb-0">
+                <div class="card-header py-2"><i class="fa-solid fa-table text-primary me-2"></i> ตารางข้อมูลการเบิกจ่าย</div>
+                <div class="card-body p-0 table-container" id="tableScrollContainer">
+                    <table class="table table-hover align-middle mb-0 w-100" id="dataTable">
+                        <thead>
+                            <tr>
+                                <th class="ps-3 sortable" onclick="sortTable('id')">TxID <i class="fa-solid fa-sort ms-1 icon-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('date')">Date/Time <i class="fa-solid fa-sort ms-1 icon-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('company')">Company <i class="fa-solid fa-sort ms-1 icon-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('taxId')">Tax ID <i class="fa-solid fa-sort ms-1 icon-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('approver')">ผู้ออนุมัติ <i class="fa-solid fa-sort ms-1 icon-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('amount')">Amount <i class="fa-solid fa-sort ms-1 icon-sort"></i></th>
+                                <th class="text-center pe-3">ตรวจสอบ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SAO Copilot Offcanvas -->
+<div class="offcanvas offcanvas-end border-start shadow" tabindex="-1" id="chatCopilot" style="width: 100%; max-width: 400px; background-color: #f8fafc;">
+    <div class="offcanvas-header border-bottom bg-white">
+        <h6 class="offcanvas-title text-primary fw-bold"><i class="fa-solid fa-robot me-2"></i> SAO Copilot</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column p-0">
+        <div id="chatMessages" class="flex-grow-1 overflow-auto p-3 d-flex flex-column gap-3">
+            <div class="chat-bubble chat-ai">
+                สวัสดีครับ ผมคือ AI ผู้ช่วยตรวจสอบ 🤖<br>
+                หากสงสัยแถวไหน กดปุ่ม <b class="text-info">AI</b> ในตารางเพื่อให้ผมช่วยวิเคราะห์ได้เลย หรือถ้าคิดว่าเจอบิลทุจริตแล้ว กดปุ่ม <b class="text-danger">Flag</b> ได้ทันทีครับ!
+            </div>
+        </div>
+        <div class="p-3 border-top bg-white">
+            <div class="input-group">
+                <input type="text" id="chatInput" class="form-control border-secondary-subtle" placeholder="พิมพ์ข้อความ..." onkeypress="handleChatEnter(event)">
+                <button class="btn btn-primary" onclick="processUserInput()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let transactions = [];
+    let currentData = [];
+    let sortConfig = { key: 'date', direction: 'asc' };
+    let score = 0;
+    const maxScore = 5;
+    let timeLeft = 300; 
+    let timerInterval;
+    let scatterChart;
+    let aiUnlocked = false;
+
+    const companyMaster = [
+        { name: "บจก. อัลฟ่า", taxId: "1011122233344" },
+        { name: "บจก. บราโว่", taxId: "1022233344455" },
+        { name: "หจก. เดลต้า", taxId: "1033344455566" },
+        { name: "บมจ. เอคโค่", taxId: "1044455566677" },
+        { name: "หจก. ฟอกซ์", taxId: "1055566677788" },
+        { name: "บจก. กอล์ฟ ซัพพลาย", taxId: "1066677788899" }
+    ];
+    const approvers = ["นายสมชาย (ผอ.กองคลัง)", "นางสาววิภา (นักวิชาการเงิน)", "นายกิตติ (รองอธิบดี)"];
+    
+    function generateMockData() {
+        for (let i = 1; i <= 15; i++) {
+            let day = Math.floor(Math.random() * 28) + 1;
+            let hour = Math.floor(Math.random() * 9) + 8;
+            let min = Math.floor(Math.random() * 59);
+            let selComp = companyMaster[Math.floor(Math.random() * companyMaster.length)];
+            let amount = Math.floor(Math.random() * 800000) + 50000;
+            
+            let approverName = "-";
+            if (amount >= 500000 || Math.random() > 0.5) {
+                approverName = approvers[Math.floor(Math.random() * approvers.length)];
+            }
+            
+            transactions.push({
+                id: `TX-${i.toString().padStart(4, '0')}`,
+                date: `2026-09-${day.toString().padStart(2, '0')} ${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`,
+                company: selComp.name, taxId: selComp.taxId, approver: approverName, amount: amount, isAnomaly: false, anomalyType: "normal"
+            });
+        }
+
+        transactions.push(
+            { id: "TX-9001", date: "2026-09-15 10:15", company: "บจก. โอเมก้า", taxId: "1234567890123", approver: "-", amount: 499900, isAnomaly: true, anomalyType: "split" },
+            { id: "TX-9002", date: "2026-09-15 14:30", company: "บจก. โอเมก้า", taxId: "1234567890123", approver: "-", amount: 499900, isAnomaly: true, anomalyType: "split" },
+            { id: "TX-9003", date: "2026-09-20 03:45", company: "หจก. ชาโดว์ เน็ตเวิร์ค", taxId: "9999999999999", approver: "-", amount: 1250000, isAnomaly: true, anomalyType: "time" },
+            { id: "TX-9004", date: "2026-09-22 11:00", company: "บจก. นิววิชั่น", taxId: "5555555555555", approver: "-", amount: 250000, isAnomaly: true, anomalyType: "tax" },
+            { id: "TX-9005", date: "2026-09-25 13:20", company: "หจก. วิชั่น พลัส", taxId: "5555555555555", approver: "-", amount: 180000, isAnomaly: true, anomalyType: "tax" }
+        );
+
+        document.getElementById('kpi-total').innerText = transactions.length;
+        currentData = [...transactions];
+        applySort(); 
+    }
+
+    function sortTable(key) {
+        if (sortConfig.key === key) sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+        else { sortConfig.key = key; sortConfig.direction = 'asc'; }
+        document.querySelectorAll('.icon-sort').forEach(i => i.className = 'fa-solid fa-sort ms-1 icon-sort');
+        const activeTh = Array.from(document.querySelectorAll('th.sortable')).find(th => th.getAttribute('onclick').includes(key));
+        if (activeTh) activeTh.querySelector('i').className = `fa-solid fa-sort-${sortConfig.direction === 'asc' ? 'up' : 'down'} ms-1 icon-sort active`;
+        applySort();
+    }
+
+    function applySort() {
+        currentData.sort((a, b) => {
+            let valA = a[sortConfig.key], valB = b[sortConfig.key];
+            if (sortConfig.key === 'amount') return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+            if (sortConfig.key === 'date') return sortConfig.direction === 'asc' ? new Date(valA) - new Date(valB) : new Date(valB) - new Date(valA);
+            return sortConfig.direction === 'asc' ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
+        });
+        renderTable(currentData);
+    }
+
+    function filterTable() {
+        const searchText = document.getElementById('searchInput').value.toLowerCase();
+        const amountFilter = document.getElementById('amountFilter').value;
+        currentData = transactions.filter(tx => {
+            const matchSearch = tx.company.toLowerCase().includes(searchText) || tx.approver.toLowerCase().includes(searchText) || tx.taxId.includes(searchText) || tx.amount.toString().includes(searchText) || tx.date.includes(searchText);
+            let matchAmount = true;
+            if(amountFilter === 'high') matchAmount = tx.amount > 400000;
+            if(amountFilter === 'low') matchAmount = tx.amount < 100000;
+            return matchSearch && matchAmount;
+        });
+        applySort();
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        data.forEach(tx => {
+            const row = document.createElement('tr');
+            row.id = `row-${tx.id}`;
+            const isFlaggedClass = tx.isFlagged ? 'flagged-row' : '';
+            
+            const btnState = tx.isFlagged ? 
+                `<button class="btn btn-danger w-50 py-2 fw-bold" disabled><i class="fa-solid fa-check"></i> ตรวจพบแล้ว</button>` : 
+                `<button class="btn btn-outline-danger w-50 py-2 fw-bold" onclick="flagAnomaly('${tx.id}', this)"><i class="fa-solid fa-flag"></i> Flag</button>`;
+
+            row.className = isFlaggedClass;
+            row.innerHTML = `
+                <td data-label="TxID" class="text-muted ps-md-3 font-monospace small">${tx.id}</td>
+                <td data-label="Date/Time" class="small fw-medium">${tx.date}</td>
+                <td data-label="Company" class="text-primary fw-bold">${tx.company}</td>
+                <td data-label="Tax ID" class="font-monospace text-secondary small">${tx.taxId}</td>
+                <td data-label="ผู้อนุมัติ" class="small text-dark">${tx.approver}</td>
+                <td data-label="Amount" class="text-end fw-bold text-dark">${tx.amount.toLocaleString()}</td>
+                <td data-label="Action" class="text-center pe-md-3">
+                    <div class="btn-group w-100 shadow-sm">
+                        <button class="btn btn-outline-info w-50 py-2 fw-bold" onclick="triggerAIChat('${tx.id}')"><i class="fa-solid fa-comment-dots"></i> AI</button>
+                        ${btnState}
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    function flagAnomaly(id, btn) {
+        if(btn.disabled) return;
+        const tx = transactions.find(t => t.id === id);
+        
+        if (tx && tx.isAnomaly) {
+            btn.disabled = true;
+            tx.isFlagged = true;
+            document.getElementById(`row-${id}`).classList.add('flagged-row');
+            
+            const parentGroup = btn.parentElement;
+            parentGroup.innerHTML = `<button class="btn btn-outline-info w-50 py-2 fw-bold" onclick="triggerAIChat('${id}')"><i class="fa-solid fa-comment-dots"></i> AI</button><button class="btn btn-danger w-50 py-2 fw-bold" disabled><i class="fa-solid fa-check"></i> ตรวจพบแล้ว</button>`;
+            
+            score++;
+            document.getElementById('score').innerText = score;
+            
+            let reasonText = "";
+            if (tx.anomalyType === 'split') {
+                reasonText = `ยอดเงิน <b>${tx.amount.toLocaleString()} บาท</b> จงใจตั้งไว้เกือบถึง 500,000 บาท เพื่อหลีกเลี่ยงการขออนุมัติตามเกณฑ์ (การซอยบิล)!`;
+            } else if (tx.anomalyType === 'time') {
+                reasonText = `เวลาทำรายการคือ <b>${tx.date.split(' ')[1]} น.</b> ซึ่งอยู่นอกเหนือเวลาทำการปกติ ถือเป็นความเสี่ยงทุจริตที่ชัดเจน!`;
+            } else if (tx.anomalyType === 'tax') {
+                reasonText = `พบว่า Tax ID: <b>${tx.taxId}</b> ถูกนำไปใช้ซ้ำกับนิติบุคคลอื่น เข้าข่ายนอมินีหรือฮั้วประมูล!`;
+            }
+            
+            openChatAndNotify('success', `🎉 <b>เยี่ยมมาก!</b> คุณตรวจสอบพบทุจริตในรายการ <b>${id}</b> <br><br>💡 <b>เหตุผล:</b> ${reasonText}`);
+            
+            if (score >= maxScore) {
+                clearInterval(timerInterval);
+                setTimeout(() => alert('🎖️ ภารกิจสำเร็จ! คุณค้นพบการทุจริตครบทั้ง 5 รายการแล้ว'), 1000);
+            }
+        } else {
+            timeLeft -= 30;
+            updateTimer();
+            openChatAndNotify('error', `❌ <b>วิเคราะห์ผิดพลาด!</b> รายการ <b>${id}</b> เป็นรายการที่ปกติและถูกต้องตามระเบียบครับ (ถูกหักเวลา 30 วินาที)<br><br><i>เหตุผล: ยอดเงิน ${tx.amount.toLocaleString()} บาท ไม่พบพิรุธ และทำรายการในเวลาทำการปกติ</i>`);
+        }
+    }
+
+    function triggerAIChat(txId) {
+        const offcanvas = new bootstrap.Offcanvas(document.getElementById('chatCopilot'));
+        offcanvas.show();
+        appendChatMessage('user', `ช่วยวิเคราะห์รายการ <b>${txId}</b> ให้หน่อยครับ`);
+        setTimeout(() => { analyzeTxByAI(txId); }, 600);
+    }
+
+    function handleChatEnter(e) { if (e.key === 'Enter') processUserInput(); }
+
+    function processUserInput() {
+        const inputField = document.getElementById('chatInput');
+        const text = inputField.value.trim();
+        if(!text) return;
+        
+        appendChatMessage('user', text);
+        inputField.value = '';
+
+        setTimeout(() => {
+            const txRegex = /TX-\d{4}/i;
+            const match = text.match(txRegex);
+            if (match) analyzeTxByAI(match[0].toUpperCase());
+            else if (text.includes('ใบ้') || text.includes('หาไม่เจอ')) appendChatMessage('ai', `<b>💡 คำใบ้:</b><br>1. ลองค้นหายอด 499,900 บาทดูสิครับ<br>2. กดสแกนกราฟหาจุดแดงๆ ที่โดดแปลกๆ<br>3. มีบริษัทแปลกๆ 2 แห่งใช้ TaxID: 5555555555555 เหมือนกัน`);
+            else appendChatMessage('ai', `พิมพ์รหัส <b>TxID</b> (เช่น TX-0001) เพื่อวิเคราะห์ หรือพิมพ์ขอ "คำใบ้" ได้เลยครับ`);
+        }, 600);
+    }
+
+    function analyzeTxByAI(txId) {
+        const tx = transactions.find(t => t.id === txId);
+        if (!tx) { appendChatMessage('ai', `❌ ไม่พบข้อมูลรหัส ${txId}`); return; }
+
+        let aiResponse = "";
+        if (!tx.isAnomaly) {
+            aiResponse = `📊 <b>วิเคราะห์ ${tx.id}:</b><br>- บจก: ${tx.company}<br>- ยอด: <span class="text-success fw-bold">${tx.amount.toLocaleString()} บาท</span><br>✅ <b>ปกติ:</b> ข้อมูลสมเหตุสมผลและถูกต้องตามกฎครับ`;
+        } else {
+            if (tx.anomalyType === 'split') aiResponse = `📊 <b>วิเคราะห์ ${tx.id}:</b><br>- ยอด: <span class="text-danger fw-bold">${tx.amount.toLocaleString()} บาท</span><br>⚠️ <b>ผิดปกติ:</b> ยอดเงินนี้จงใจต่ำกว่าเกณฑ์อนุมัติ (500k) น่าจะเป็นการซอยบิล แนะนำให้ <b class="text-danger">Flag</b> ครับ!`;
+            else if (tx.anomalyType === 'time') aiResponse = `📊 <b>วิเคราะห์ ${tx.id}:</b><br>- เวลาทำการ: <span class="text-danger fw-bold">${tx.date.split(' ')[1]} น.</span><br>🚨 <b>ผิดปกติ:</b> ทำรายการเวลาวิกาล แนะนำให้ <b class="text-danger">Flag</b> ทันทีครับ`;
+            else if (tx.anomalyType === 'tax') aiResponse = `📊 <b>วิเคราะห์ ${tx.id}:</b><br>- Tax ID: <span class="text-danger fw-bold">${tx.taxId}</span><br>⚠️ <b>ผิดปกติ:</b> พบการใช้เลขผู้เสียภาษีนี้ซ้ำกับบริษัทอื่น (เข้าข่ายนอมินี) แนะนำให้ <b class="text-danger">Flag</b> ครับ`;
+        }
+        appendChatMessage('ai', aiResponse);
+    }
+
+    function openChatAndNotify(type, message) {
+        const offcanvas = new bootstrap.Offcanvas(document.getElementById('chatCopilot'));
+        offcanvas.show();
+        appendChatMessage('ai', message);
+    }
+
+    function appendChatMessage(sender, htmlContent) {
+        const chatBox = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = `chat-bubble ${sender === 'user' ? 'chat-user' : 'chat-ai'}`;
+        div.innerHTML = htmlContent;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // --- ฟังก์ชันสร้างและตั้งค่า Chart.js ---
+    function initChart() {
+        const ctx = document.getElementById('scatterChart').getContext('2d');
+        Chart.defaults.font.family = "'Kanit', sans-serif";
+        Chart.defaults.color = '#64748b';
+        const chartData = transactions.sort((a,b) => new Date(a.date) - new Date(b.date)).map((tx, index) => ({ x: index, y: tx.amount, txId: tx.id }));
+
+        scatterChart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets: [{ data: chartData, backgroundColor: '#38bdf8', borderColor: '#0284c7', borderWidth: 1, pointRadius: 5, pointHoverRadius: 8, hitRadius: 10 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { display: false }, y: { grid: { color: '#e2e8f0' }, ticks: { callback: v => v.toLocaleString() } } },
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ยอด: ${transactions.find(t => t.id === ctx.raw.txId).amount.toLocaleString()} บาท`, title: (ctx) => `${ctx[0].raw.txId}` } } },
+                // --- ระบบคลิกที่จุดบนกราฟเพื่อ Scroll ไปหาตาราง ---
+                onClick: (event, elements, chart) => {
+                    if (elements.length > 0) {
+                        const elementIndex = elements[0].index;
+                        const datasetIndex = elements[0].datasetIndex;
+                        const txId = chart.data.datasets[datasetIndex].data[elementIndex].txId;
+
+                        const rowElement = document.getElementById(`row-${txId}`);
+                        if (rowElement) {
+                            // เลื่อนหน้าจอไปหาบรรทัดนั้น
+                            rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            
+                            // เพิ่ม CSS Class กระพริบไฮไลต์
+                            rowElement.classList.add('highlight-flash');
+                            
+                            // เอาคลาสออกเมื่อผ่านไป 1.5 วินาที
+                            setTimeout(() => {
+                                rowElement.classList.remove('highlight-flash');
+                            }, 1500);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function activateGlobalAI() {
+        const btn = document.getElementById('btnAi');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-robot"></i> แสกนสำเร็จ';
+
+        const newColors = scatterChart.data.datasets[0].data.map(point => transactions.find(t => t.id === point.txId).isAnomaly ? '#ef4444' : '#bae6fd');
+        const newRadius = scatterChart.data.datasets[0].data.map(point => transactions.find(t => t.id === point.txId).isAnomaly ? 8 : 4);
+        
+        scatterChart.data.datasets[0].backgroundColor = newColors;
+        scatterChart.data.datasets[0].pointRadius = newRadius;
+        scatterChart.update();
+        
+        openChatAndNotify('info', `🤖 <b>ระบบประมวลผล:</b> ผมทำการไฮไลต์ <b class="text-danger">จุดสีแดง</b> ที่น่าสงสัยบนกราฟให้แล้วครับ ลองกดคลิกที่จุดบนกราฟเพื่อดูข้อมูลได้เลยครับ`);
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateTimer();
+            
+            // ปลดล็อกปุ่ม AI ช่วยแสกน เมื่อเวลาเหลือน้อยกว่าหรือเท่ากับ 3 นาที (180 วินาที)
+            if (timeLeft <= 180 && !aiUnlocked) {
+                aiUnlocked = true;
+                const btnAi = document.getElementById('btnAi');
+                btnAi.disabled = false;
+                btnAi.classList.replace('btn-secondary', 'btn-warning');
+                btnAi.innerHTML = '<i class="fa-solid fa-microchip"></i><span class="d-none d-md-inline ms-1"> ตัวช่วยแสกน</span>';
+                
+                openChatAndNotify('info', `🔔 <b>แจ้งเตือน:</b> ฟังก์ชัน "ตัวช่วยแสกน" ปลดล็อกแล้ว! หากหาเบาะแสไม่เจอ สามารถกดปุ่ม <b class="text-warning">ตัวช่วยแสกน</b> ที่มุมขวาบนได้เลยครับ`);
+            }
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById('timer').innerText = "00:00";
+                alert('⏳ หมดเวลา!');
+                document.querySelectorAll('.btn-outline-danger, .btn-outline-info').forEach(b => b.disabled = true);
+            }
+        }, 1000);
+    }
+
+    function updateTimer() {
+        if(timeLeft < 0) timeLeft = 0;
+        document.getElementById('timer').innerText = `${Math.floor(timeLeft / 60).toString().padStart(2, '0')}:${(timeLeft % 60).toString().padStart(2, '0')}`;
+    }
+
+    window.onload = () => {
+        generateMockData();
+        initChart();
+        startTimer();
+    };
+</script>
+</body>
+</html>
