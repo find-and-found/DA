@@ -25,8 +25,8 @@
         
         .mission-box { background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 12px; padding: 15px; margin-bottom: 15px; color: #0369a1; }
         
-        .chart-wrapper { position: relative; height: 380px; width: 100%; cursor: pointer; } /* เพิ่ม cursor pointer ให้กราฟ */
-        .table-container { height: 450px; overflow-y: auto; background: white; scroll-behavior: smooth; } /* เพิ่ม scroll smooth */
+        .chart-wrapper { position: relative; height: 380px; width: 100%; cursor: pointer; }
+        .table-container { height: 450px; overflow-y: auto; background: white; scroll-behavior: smooth; }
         
         thead th { position: sticky; top: 0; background-color: #f1f5f9 !important; z-index: 1; border-bottom: 2px solid var(--border-color); color: #334155; font-weight: 600; font-size: 0.9rem; }
         
@@ -36,12 +36,7 @@
         .icon-sort.active { color: #0284c7; }
 
         .flagged-row { background-color: #fee2e2 !important; pointer-events: none; }
-        
-        /* CSS สำหรับกระพริบไฮไลต์เมื่อคลิกจากกราฟ */
-        .highlight-flash {
-            background-color: #bae6fd !important;
-            transition: background-color 0.5s ease;
-        }
+        .highlight-flash { background-color: #bae6fd !important; transition: background-color 0.5s ease; }
 
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -55,11 +50,8 @@
         @media (max-width: 768px) {
             .chart-wrapper { height: 220px; }
             .table-container { height: 60vh; }
-            
             #dataTable thead { display: none; }
-            #dataTable tbody tr { 
-                display: block; border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px; padding: 12px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-            }
+            #dataTable tbody tr { display: block; border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px; padding: 12px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
             #dataTable tbody td { display: flex; justify-content: space-between; align-items: center; border: none; padding: 6px 0; text-align: right; }
             #dataTable tbody td::before { content: attr(data-label); font-weight: 600; color: #64748b; text-align: left; flex-shrink: 0; margin-right: 15px; }
             .btn-group { width: 100%; margin-top: 10px; }
@@ -209,10 +201,18 @@
             let hour = Math.floor(Math.random() * 9) + 8;
             let min = Math.floor(Math.random() * 59);
             let selComp = companyMaster[Math.floor(Math.random() * companyMaster.length)];
-            let amount = Math.floor(Math.random() * 800000) + 50000;
             
+            // ปรับโอกาสให้ 60% ของข้อมูลมียอดเกิน 500k เพื่อโชว์ชื่อผู้อนุมัติเยอะๆ
+            let amount;
+            if (Math.random() > 0.4) {
+                amount = Math.floor(Math.random() * 400000) + 500000; // 500,000 - 900,000
+            } else {
+                amount = Math.floor(Math.random() * 400000) + 50000;  // 50,000 - 450,000
+            }
+            
+            // กฎใหม่: ถ้าไม่ถึง 500,000 ต้องเป็นขีด (-) เสมอ 100% ไม่มีสุ่มมั่ว
             let approverName = "-";
-            if (amount >= 500000 || Math.random() > 0.5) {
+            if (amount >= 500000) {
                 approverName = approvers[Math.floor(Math.random() * approvers.length)];
             }
             
@@ -226,8 +226,8 @@
         transactions.push(
             { id: "TX-9001", date: "2026-09-15 10:15", company: "บจก. โอเมก้า", taxId: "1234567890123", approver: "-", amount: 499900, isAnomaly: true, anomalyType: "split" },
             { id: "TX-9002", date: "2026-09-15 14:30", company: "บจก. โอเมก้า", taxId: "1234567890123", approver: "-", amount: 499900, isAnomaly: true, anomalyType: "split" },
-            { id: "TX-9003", date: "2026-09-20 03:45", company: "หจก. ชาโดว์ เน็ตเวิร์ค", taxId: "9999999999999", approver: "-", amount: 1250000, isAnomaly: true, anomalyType: "time" },
-            { id: "TX-9004", date: "2026-09-22 11:00", company: "บจก. นิววิชั่น", taxId: "5555555555555", approver: "-", amount: 250000, isAnomaly: true, anomalyType: "tax" },
+            { id: "TX-9003", date: "2026-09-20 03:45", company: "หจก. ชาโดว์ เน็ตเวิร์ค", taxId: "9999999999999", approver: "นายสมชาย (ผอ.กองคลัง)", amount: 1250000, isAnomaly: true, anomalyType: "time" },
+            { id: "TX-9004", date: "2026-09-22 11:00", company: "บจก. นิววิชั่น", taxId: "5555555555555", approver: "นายกิตติ (รองอธิบดี)", amount: 750000, isAnomaly: true, anomalyType: "tax" },
             { id: "TX-9005", date: "2026-09-25 13:20", company: "หจก. วิชั่น พลัส", taxId: "5555555555555", approver: "-", amount: 180000, isAnomaly: true, anomalyType: "tax" }
         );
 
@@ -332,7 +332,7 @@
         } else {
             timeLeft -= 30;
             updateTimer();
-            openChatAndNotify('error', `❌ <b>วิเคราะห์ผิดพลาด!</b> รายการ <b>${id}</b> เป็นรายการที่ปกติและถูกต้องตามระเบียบครับ (ถูกหักเวลา 30 วินาที)<br><br><i>เหตุผล: ยอดเงิน ${tx.amount.toLocaleString()} บาท ไม่พบพิรุธ และทำรายการในเวลาทำการปกติ</i>`);
+            openChatAndNotify('error', `❌ <b>วิเคราะห์ผิดพลาด!</b> รายการ <b>${id}</b> เป็นรายการที่ปกติและถูกต้องตามระเบียบครับ (ถูกหักเวลา 30 วินาที)<br><br><i>เหตุผล: ยอดเงิน ${tx.amount.toLocaleString()} บาท สอดคล้องกับระเบียบผู้อนุมัติ และทำรายการในเวลาทำการปกติ</i>`);
         }
     }
 
@@ -392,7 +392,6 @@
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // --- ฟังก์ชันสร้างและตั้งค่า Chart.js ---
     function initChart() {
         const ctx = document.getElementById('scatterChart').getContext('2d');
         Chart.defaults.font.family = "'Kanit', sans-serif";
@@ -406,7 +405,6 @@
                 responsive: true, maintainAspectRatio: false,
                 scales: { x: { display: false }, y: { grid: { color: '#e2e8f0' }, ticks: { callback: v => v.toLocaleString() } } },
                 plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ยอด: ${transactions.find(t => t.id === ctx.raw.txId).amount.toLocaleString()} บาท`, title: (ctx) => `${ctx[0].raw.txId}` } } },
-                // --- ระบบคลิกที่จุดบนกราฟเพื่อ Scroll ไปหาตาราง ---
                 onClick: (event, elements, chart) => {
                     if (elements.length > 0) {
                         const elementIndex = elements[0].index;
@@ -415,16 +413,9 @@
 
                         const rowElement = document.getElementById(`row-${txId}`);
                         if (rowElement) {
-                            // เลื่อนหน้าจอไปหาบรรทัดนั้น
                             rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            
-                            // เพิ่ม CSS Class กระพริบไฮไลต์
                             rowElement.classList.add('highlight-flash');
-                            
-                            // เอาคลาสออกเมื่อผ่านไป 1.5 วินาที
-                            setTimeout(() => {
-                                rowElement.classList.remove('highlight-flash');
-                            }, 1500);
+                            setTimeout(() => { rowElement.classList.remove('highlight-flash'); }, 1500);
                         }
                     }
                 }
@@ -452,7 +443,6 @@
             timeLeft--;
             updateTimer();
             
-            // ปลดล็อกปุ่ม AI ช่วยแสกน เมื่อเวลาเหลือน้อยกว่าหรือเท่ากับ 3 นาที (180 วินาที)
             if (timeLeft <= 180 && !aiUnlocked) {
                 aiUnlocked = true;
                 const btnAi = document.getElementById('btnAi');
